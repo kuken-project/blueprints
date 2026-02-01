@@ -73,7 +73,7 @@ inputs {
 
 build {
   docker {
-    image = "deinfreu/hytale-server:latest-alpine-liberica"
+    image = "deinfreu/hytale-server:staging-alpine-liberica"
   }
 
   env = new Mapping {
