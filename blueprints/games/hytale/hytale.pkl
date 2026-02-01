@@ -1,10 +1,11 @@
 module io.kuken.hytale.Hytale
 
-// amends "https://kuken.io/blueprints/reference/v1/Reference.pkl"
-amends "file:///D:/IdeaProjects/kuken/blueprints/reference/v1/Reference.pkl"
+amends "https://kuken.io/blueprints/reference/v1/Reference.pkl"
 
 name = "Hytale"
 version = "1.0.0"
+description = ""
+author = "Küken <support@kuken.gg>"
 url = "https://kuken.io"
 
 assets {
@@ -15,51 +16,55 @@ assets {
 // USER-DEFINED INPUT DEFINITIONS
 // ============================================================================
 
+local AuthMode = selectInput(
+  "Auth Mode",
+  new Mapping {
+    ["authenticated"] = "Authenticated"
+    ["insecure"]      = "Insecure"
+    ["offline"]       = "Offline"
+  }
+)
+
+local AllowOperators = checkboxInput("Allow Server Operators") |> default(true)
+
 /// Hytale warns that loading early plugins is unsupported and may cause stability issues.
-local AcceptEarlyPlugins = checkboxInput("accept-early-plugins", "Accept Early Plugins")
-
-/// Allow Server Operators.
-local AllowOperators = checkboxInput("allow-operators", "Allow Server Operators")
-
-/// Authentication mode.
-local AuthMode = selectInput("auth-mode", "Auth Mode", List("Offline", "Authenticated"))
+local AcceptEarlyPlugins = (checkboxInput("Accept Early Plugins"))
+  |> default(true)
+  |> withDescription("Allow loading early or experimental plugins (unsupported and may cause stability issues)")
 
 /// Hytale uses Sentry to track crashes. Disable Sentry during active plugin development.
-local DisableSentry = checkboxInput("disable-sentry", "Disable Sentry")
+local DisableSentry = checkboxInput("Disable Sentry")
+  |> withDescription("Hytale uses Sentry to track crashes. Disable Sentry during active plugin development.")
 
 /// Installs the Soruce Query plugin, so that your server responds to
 /// Source Query A2S requests (player count, server name, etc.).
-local InstallSourceQueryPlugin = (
-  checkboxInput(
-    "install-source-query-plugin",
-    "Install Source Query plugin",
-  )
-) {
-  default = true
-}
+local InstallSourceQueryPlugin = checkboxInput("Install Source Query plugin")
+  |> default(true)
+  |> withDescription("Installs the Soruce Query plugin, so that your server responds to Source Query A2S requests (player count, server name, etc.).")
 
 /// The port that the Source Query plugin will use to respond to A2S requests.
 /// This should be different from the main server port. Defaults to the game port + 1.
-local SourceQueryPort =
-  portInput(
-    "source-query-plugin",
-    "Source Query Port",
-    refs.network.port + 1,
-  )
+local SourceQueryPort = portInput("Source Query Port")
+  |> withDescription(
+      """
+      The port that the Source Query plugin will use to respond to A2S requests.
+      This should be different from the main server port. Defaults to the game port + 1.
+      """
+    )
 
 /// Hytale provides a pre-trained AOT Java cache which can significantly improve boot times.
-local UseAOTCache = (checkboxInput("use-aot-cache", "Use AOT Cache")) {
-  default = true
-}
+local UseAOTCache = checkboxInput("Use AOT Cache")
+  |> default(true)
+  |> withDescription("Hytale provides a pre-trained AOT Java cache which can significantly improve boot times.")
 
 inputs {
-  AuthMode
   AcceptEarlyPlugins
-  DisableSentry
-  UseAOTCache
   AllowOperators
+  AuthMode
+  DisableSentry
   InstallSourceQueryPlugin
   SourceQueryPort
+  UseAOTCache
 }
 
 // ============================================================================
@@ -68,17 +73,19 @@ inputs {
 
 build {
   docker {
-    image = "ghcr.io/pterodactyl/games:hytale"
+    image = "deinfreu/hytale-server:latest-alpine-liberica"
   }
 
-  environmentVariables {
-    new { name = "HYTALE_AUTH_MODE"; value = AuthMode }
-    new { name = "HYTALE_ACCEPT_EARLY_PLUGINS"; value = AcceptEarlyPlugins }
-    new { name = "DISABLE_SENTRY"; value = DisableSentry }
-    new { name = "USE_AOT_CACHE"; value = UseAOTCache }
-    new { name = "HYTALE_ALLOW_OP"; value = AllowOperators }
-    new { name = "INSTALL_SOURCEQUERY_PLUGIN"; value = InstallSourceQueryPlugin }
-    new { name = "QUERY_PORT"; value = SourceQueryPort }
+  env = new Mapping {
+    ["HYTALE_AUTH_MODE"]            = AuthMode
+    ["HYTALE_ACCEPT_EARLY_PLUGINS"] = AcceptEarlyPlugins
+    ["DISABLE_SENTRY"]              = DisableSentry
+    ["USE_AOT_CACHE"]               = UseAOTCache
+    ["HYTALE_ALLOW_OP"]             = AllowOperators
+    ["INSTALL_SOURCEQUERY_PLUGIN"]  = InstallSourceQueryPlugin
+    ["QUERY_PORT"]                  = SourceQueryPort
+    ["SERVER_IP"]                   = module.refs.network.host
+    ["SERVER_PORT"]                 = module.refs.network.port
   }
 }
 
@@ -86,29 +93,9 @@ build {
 // INSTANCE SETTINGS
 // ============================================================================
 
-local authMode = using(AuthMode, (value) -> " --auth-mode \(value)")
-local allowOperators = using(AllowOperators, (_) -> "--allow-operators")
-local useAotCache = using(AllowOperators, (_) -> "XX:AOTCache=Server/HytaleServer.aot")
-local acceptEarlyPlugins = using(AcceptEarlyPlugins, (_) -> "--accept-early-plugins")
-local disableSentry = using(DisableSentry, (_) -> "--disable-sentry")
-
 instance {
   startup =
     """
-    java \(authMode) \(allowOperators) \(useAotCache) \(acceptEarlyPlugins) \(disableSentry) -Xms128 --assets Assets.zip --bind 0.0.0.0:\(refs.network.port) -jar Server/HytaleServer.jar
+    java -Xms128 --assets Assets.zip --bind 0.0.0.0:\(module.refs.network.port) -jar Server/HytaleServer.jar
     """
-}
-
-// ============================================================================
-// APLICATION RESOURCES & HOOKS
-// ============================================================================
-
-local InstallScript = file("install.sh")
-
-resources {
-  InstallScript
-}
-
-hooks {
-  onInstall = InstallScript
 }

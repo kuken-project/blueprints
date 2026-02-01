@@ -2,26 +2,20 @@
 // Küken BLUEPRINT REFERENCE SCHEMA
 // ============================================================================
 
-///
-/// This module defines the complete configuration schema for Küken application
-/// blueprints. Blueprints describe containerized applications with their inputs,
+/// This module defines the complete configuration schema for Küken
+/// blueprints. Blueprints describe applications with their inputs,
 /// build configuration, environment variables, and metadata.
 ///
 /// A Blueprint serves as a template that Küken uses to:
 ///   - Generate user configuration interfaces
-///   - Build Docker containers with proper configuration
+///   - Build runtimes with proper configuration
 ///   - Manage environment variables and secrets
-///   - Handle port mappings and networking
+///   - Handle port mappings, networking and so on.
 ///
 /// See <https://kuken.io/docs/blueprints>
-/// @version 1.0.0
-/// ============================================================================
 @ModuleInfo { minPklVersion = "0.30.2" }
 module io.kuken.Blueprint
-
-// ============================================================================
-// MODULE DESCRIPTOR
-// ============================================================================
+hidden fixed const referenceVersion = 1
 
 /// The canonical name of the application or service.
 /// This should be the official product name in title case.
@@ -32,6 +26,9 @@ name: String(
     && length >= 3
     && length <= 100,
 )
+
+description: String
+author: String
 
 /// Semantic version of this blueprint definition following semver 2.0.0 specification.
 /// This tracks blueprint changes, not the application version itself.
@@ -59,6 +56,30 @@ version: String(matches(Regex(#"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)
 ///
 /// @required
 url: WebUrl
+
+/// Optional visual assets for the application.
+/// Enhances the user experience in Küken's catalog and dashboards.
+assets: AppAssets?
+resources: AppResources?
+
+/// Runtime values that are only available during blueprint evaluation.
+/// References provide access to generated values that don't exist when writing the blueprint,
+/// such as instance names, generated IDs, assigned ports. Use refs to inject these dynamic runtime
+/// values into your configuration.
+///
+/// **Example:** `${refs.instance.name}` resolves to the actual instance name at deployment time.
+const refs: RuntimeRefs
+
+/// User-configurable inputs presented during application setup.
+/// Each input defines validation rules, display properties, and default values where applicable.
+inputs: UserInputs
+
+/// Build configuration defining container image and runtime environment.
+/// Küken processes this to pull images, configure variables, and start containers with proper settings.
+build: BuildConfig
+
+instance: InstanceSettings?
+hooks: Hooks?
 
 // ============================================================================
 // TYPE DEFINITIONS - PRIMITIVES
@@ -200,46 +221,38 @@ typealias UserInputs = Listing<UserInput>
 
 /// Collection of environment variables passed to the container at runtime.
 /// Can contain static values or references to user inputs.
-typealias EnvironmentVariables = Listing<EnvironmentVariable>
+typealias EnvironmentVariables = Mapping<EnvVarName, EnvVarValue>
 
 /// Supported value types for environment variables.
 /// Küken handles type conversion to strings as needed by the container runtime.
-typealias EnvVarValue = Char | String | Number | Boolean | Duration | DataSize | UserInput
+typealias EnvVarValue = Char | String | Number | Boolean | Duration | DataSize | UserInput | Ref
 
 // ============================================================================
 // ABSTRACT BASE CLASSES
 // ============================================================================
 abstract class Base {
-  /// Runtime values that are only available during blueprint instantiation.
-  /// References provide access to system-generated values that don't exist when writing the blueprint,
-  /// such as instance names, generated IDs, or assigned ports. Use refs to inject these dynamic runtime
-  /// values into your configuration.
-  ///
-  /// **Example:** `${refs.instance.name}` resolves to the actual instance name at deployment time.
-  fixed refs: RuntimeRefs = module.refs
-
-  const function using(_value: ResolvableProperty, _input: (String) -> String) =
-    module.using(_value, _input)
+  const function use(_condition: UserInput, _value: String): Property = new ConditionProperty {
+    name = _condition.name
+    value = _value
+  }
 }
-
-const function using(_value: ResolvableProperty, _input: (String) -> String) =
-  if (_value.ref.isDefined()) _input.apply(_value.ref.value()) else ""
 
 /// Marker interface for all property types in the blueprint.
 /// Provides type safety for polymorphic property handling.
 abstract class Property {
-  name: String
+  name: String = "<not-set>"
 
-  ref: Ref = internalPropertyRef("input.\(name).value")
+  fixed hidden ref: Ref = internalPropertyRef(Any, "prop.\(name)")
+}
+
+class ConditionProperty extends Property {
+
+  value: String
 }
 
 // ============================================================================
 // APPLICATION ASSETS
 // ============================================================================
-
-/// Optional visual assets for the application.
-/// Enhances the user experience in Küken's catalog and dashboards.
-assets: AppAssets?
 
 /// Container for application visual resources.
 /// Currently supports application icons with plans for additional asset types.
@@ -248,8 +261,6 @@ class AppAssets {
   /// Should be a square PNG, SVG, or WebP image, 256x256 pixels maximum.
   icon: Source?
 }
-
-resources: AppResources?
 
 typealias AppResources = Listing<AppResource>
 
@@ -266,17 +277,10 @@ function file(path: String): FileResource = new { source = "\(FILE_PROTOCOL)\(pa
 // ============================================================================
 // RUNTIME REFERENCES
 // ============================================================================
-/// Runtime values that are only available during blueprint instantiation.
-/// References provide access to system-generated values that don't exist when writing the blueprint,
-/// such as instance names, generated IDs, or assigned ports. Use refs to inject these dynamic runtime
-/// values into your configuration.
-///
-/// **Example:** `${refs.instance.name}` resolves to the actual instance name at deployment time.
-const refs: RuntimeRefs
 
 @Unlisted
-const function internalPropertyRef(_key: String): Ref = new Ref {
-  key = "__REF__\(_key)__"
+const function internalPropertyRef(type: Class, _key: String): Ref = new Ref {
+  key = "__REF__\(type.simpleName):\(_key)__"
 }
 
 class Ref {
@@ -284,7 +288,7 @@ class Ref {
 
   function isDefined(): Boolean = !value().isEmpty
 
-  function value(): String = read("kuken:\(key)") as String
+  function value(): String? = read("kuken:\(key)") as String?
 }
 
 /// Runtime reference values injected by Küken during instance creation.
@@ -303,11 +307,13 @@ class RuntimeRefs {
 class InstanceRefs {
   /// Unique identifier assigned to this instance.
   /// Can be used for tagging, logging, or internal references.
-  const id: String = internalPropertyRef("instance.id").value()
+  const id: Ref = internalPropertyRef(String, "instance.id")
 
   /// Generated unique name for this instance.
   /// Useful for container names, volume prefixes, or network identifiers.
-  const name: String = internalPropertyRef("instance.name").value()
+  const name: Ref = internalPropertyRef(String, "instance.name")
+
+  const jarFile: Ref = internalPropertyRef(String, "instance.jarFile")
 
   const command: String = "${refs.instance.command}"
 }
@@ -315,28 +321,25 @@ class InstanceRefs {
 /// Network-related runtime values assigned during deployment.
 /// These references provide access to ports and network configuration determined at runtime.
 class NetworkRefs {
-  const host: String = internalPropertyRef("network.host").value()
+  const host: Ref = internalPropertyRef(String, "network.host")
 
   /// Primary port assigned to this instance.
   /// Resolves to the actual port number allocated by Küken, useful when auto-assigning ports
   /// or when the port depends on other runtime conditions.
-  const port: Int = internalPropertyRef("network.port").value().toInt()
+  const port: Ref = internalPropertyRef(Int, "network.port")
 }
 
 // ============================================================================
 // USER INPUT DEFINITIONS
 // ============================================================================
 
-/// User-configurable inputs presented during application setup.
-/// Each input defines validation rules, display properties, and default values where applicable.
-inputs: UserInputs
-
 /// Base class for all user input types.
 /// Subclasses provide type-specific validation and UI rendering hints.
 abstract class UserInput extends Property {
-  /// Unique programmatic identifier in kebab-case.
-  /// Used in environment variable references and property interpolation.
-  abstract name: InputId
+  name = label.toLowerCase().replaceAll(" ", "-")
+
+  @SourceCode { language = "Markdown" }
+  abstract description: String
 
   /// Human-readable display text shown to users.
   /// Should clearly describe the input's purpose without requiring technical knowledge.
@@ -346,7 +349,7 @@ abstract class UserInput extends Property {
   /// Used internally for UI rendering and validation.
   fixed type: String
 
-  hidden ref: Ref = internalPropertyRef("input.\(name).value")
+  abstract hidden fixed ref: Ref
 }
 
 /// Plain text input field for non-sensitive configuration values.
@@ -365,12 +368,7 @@ class TextInput extends UserInput {
   /// Default text value if user doesn't specify one.
   default: String?
 
-  hidden ref: String = internalPropertyRef("input.\(this.name).value").value()
-}
-
-const function textInput(_name: InputId, _label: DisplayLabel) = new TextInput {
-  name = _name
-  label = _label
+  hidden fixed ref: Ref = internalPropertyRef(String, "input.\(this.name).value")
 }
 
 /// Password input field with masked character display.
@@ -385,14 +383,8 @@ const function textInput(_name: InputId, _label: DisplayLabel) = new TextInput {
 /// }
 /// ```
 class PasswordInput extends UserInput {
+
   fixed type: String = "password"
-
-  hidden ref: String = internalPropertyRef("input.\(this.name).value").value()
-}
-
-const function passwordInput(_name: InputId, _label: DisplayLabel) = new PasswordInput {
-  name = _name
-  label = _label
 }
 
 /// Network port number input with automatic range validation.
@@ -412,15 +404,9 @@ class PortInput extends UserInput {
 
   /// Default port number if user doesn't specify one.
   /// Should be a commonly used port that's unlikely to conflict with other services.
-  default: PortNumber
+  default: PortNumber?
 
-  hidden ref: PortNumber = internalPropertyRef("input.\(this.name).value").value().toInt()
-}
-
-const function portInput(_name: InputId, _label: DisplayLabel, _default: PortNumber) = new PortInput {
-  name = _name
-  label = _label
-  default = _default
+  hidden fixed ref: Ref = internalPropertyRef(Int, "input.\(this.name).value")
 }
 
 class SelectInput extends UserInput {
@@ -430,26 +416,15 @@ class SelectInput extends UserInput {
   default: String?
   items: Mapping<String, String>
 
-  hidden ref: String = internalPropertyRef("input.\(this.name).value").value()
-}
-
-const function selectInput(_name: InputId, _label: DisplayLabel, _items: Mapping<String, String>) = new SelectInput {
-  name = _name
-  label = _label
-  items = _items
+  hidden fixed ref: Ref = internalPropertyRef(String, "input.\(this.name).value")
 }
 
 class CheckboxInput extends UserInput {
   fixed type: String = "checkbox"
 
-  default: Boolean
+  default: Boolean = false
 
-  hidden fixed value: Boolean = ref.value().toBoolean()
-}
-
-const function checkboxInput(_name: InputId, _label: DisplayLabel) = new CheckboxInput {
-  name = _name
-  label = _label
+  hidden fixed ref: Ref = internalPropertyRef(Boolean, "input.\(this.name).value")
 }
 
 class DataSizeInput extends UserInput {
@@ -458,7 +433,21 @@ class DataSizeInput extends UserInput {
   /// Default text value if user doesn't specify one.
   default: DataSize?
 
-  hidden fixed value: DataSize? = ref.value().toInt().toDataSize("kb")
+  hidden fixed ref: Ref = internalPropertyRef(DataSize, "input.\(this.name).value")
+}
+
+const function textInput(_name: InputId, _label: DisplayLabel) = new TextInput {
+  name = _name
+  label = _label
+}
+
+const function passwordInput(_name: InputId, _label: DisplayLabel) = new PasswordInput {
+  name = _name
+  label = _label
+}
+
+const function portInput(_label: DisplayLabel) = new PortInput {
+  label = _label
 }
 
 const function dataSizeInput(_name: InputId, _label: DisplayLabel) = new DataSizeInput {
@@ -466,10 +455,18 @@ const function dataSizeInput(_name: InputId, _label: DisplayLabel) = new DataSiz
   label = _label
 }
 
+const function checkboxInput(_label: DisplayLabel) = new CheckboxInput {
+  label = _label
+}
+
+const function selectInput(_label: DisplayLabel, _items: Mapping<String, String>) = new SelectInput {
+  label = _label
+  items = _items
+}
+
 // ============================================================================
 // INSTANCE SETTINGS
 // ============================================================================
-instance: InstanceSettings?
 
 class InstanceSettings extends Base {
   startup: String(!isEmpty)?
@@ -505,10 +502,6 @@ class SSHInstanceCommandExecutor extends InstanceCommandExecutor {
 // BUILD CONFIGURATION
 // ============================================================================
 
-/// Build configuration defining container image and runtime environment.
-/// Küken processes this to pull images, configure variables, and start containers with proper settings.
-build: BuildConfig
-
 /// Complete build specification for the application container.
 /// Combines Docker image selection with environment variable configuration.
 class BuildConfig extends Base {
@@ -517,7 +510,12 @@ class BuildConfig extends Base {
 
   /// Environment variables passed to the container at runtime.
   /// Can include static values, user inputs, or a combination of both.
-  environmentVariables: EnvironmentVariables
+  env: EnvironmentVariables
+
+  function env(_name: String, _value: EnvVarValue) = new EnvironmentVariable {
+    name = _name
+    value = _value
+  }
 }
 
 /// Docker container configuration specifying which image to use.
@@ -554,17 +552,18 @@ class EnvironmentVariable extends Property {
   value: EnvVarValue
 }
 
-const function env(_name: EnvVarName, _value: EnvVarValue): EnvironmentVariable = new {
-  name = _name
-  value = _value
-}
-
 // ============================================================================
 // HOOKS
 // ============================================================================
 
-hooks: Hooks?
-
 class Hooks {
-  onInstall: AppResource?
+  onInstall: String | AppResource?
+}
+
+function default(_default: Any) = new Mixin {
+  default = _default
+}
+
+function withDescription(_description: String) = new Mixin<UserInput> {
+  description = _description
 }
