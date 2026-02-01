@@ -12,7 +12,7 @@ author = "Küken <support@kuken.gg>"
 url = "https://kuken.io"
 
 assets {
-  icon = "https://kuken.io/blueprints/icons/minecraft-java-edition.png"
+  icon = "https://kuken.io/blueprints/icons/minecraft-java-edition.jpg"
 }
 
 // ============================================================================
