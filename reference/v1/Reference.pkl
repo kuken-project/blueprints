@@ -167,11 +167,21 @@ function udp(port: PortNumber): Port = new {
   protocol = "udp"
 }
 
+const MIN_PORT_NUMBER = 1
+const MAX_PORT_NUMBER = 65535
+
 typealias PortNumber =
   UInt16(
     this >= 1
-      && this <= 65535,
+      && this <= MAX_PORT_NUMBER,
   )
+
+class PortRange {
+
+  min: PortNumber
+
+  max: PortNumber
+}
 
 class Port {
   /// Valid TCP/UDP port number in the range 1-65535.
@@ -505,6 +515,8 @@ class SSHInstanceCommandExecutor extends InstanceCommandExecutor {
 /// Complete build specification for the application container.
 /// Combines Docker image selection with environment variable configuration.
 class BuildConfig extends Base {
+  defaultPort: (PortNumber | PortRange)?
+
   /// Docker container image specification.
   docker: DockerConfig
 
@@ -515,6 +527,11 @@ class BuildConfig extends Base {
   function env(_name: String, _value: EnvVarValue) = new EnvironmentVariable {
     name = _name
     value = _value
+  }
+
+  function portRange(_min: PortNumber, _max: PortNumber) = new PortRange {
+    min = _min
+    max = _max
   }
 }
 
