@@ -1,5 +1,3 @@
-module io.kuken.hytale.Hytale
-
 amends "https://kuken.io/blueprints/reference/v1/Reference.pkl"
 
 name = "Hytale"
@@ -28,7 +26,7 @@ local AuthMode = selectInput(
 local AllowOperators = checkboxInput("Allow Server Operators") |> default(true)
 
 /// Hytale warns that loading early plugins is unsupported and may cause stability issues.
-local AcceptEarlyPlugins = (checkboxInput("Accept Early Plugins"))
+local AcceptEarlyPlugins = checkboxInput("Accept Early Plugins")
   |> default(true)
   |> withDescription("Allow loading early or experimental plugins (unsupported and may cause stability issues)")
 
@@ -72,6 +70,8 @@ inputs {
 // ============================================================================
 
 build {
+  defaultPort = portRange(1, 65535)
+
   docker {
     image = "deinfreu/hytale-server:staging-alpine-liberica"
   }
