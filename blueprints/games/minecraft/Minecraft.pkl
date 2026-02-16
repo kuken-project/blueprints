@@ -3,8 +3,7 @@
 /// Küken blueprint for deploying Minecraft Java Edition servers using the [itzg/minecraft-server](https://github.com/itzg/docker-minecraft-server) Docker image.
 abstract module io.kuken.minecraft.Minecraft
 
-// amends "https://kuken.io/blueprints/reference/v1/Reference.pkl"
-extends "file://D:/IdeaProjects/kuken-blueprints/reference/v1/Reference.pkl"
+amends "https://kuken.io/blueprints/reference/v1/Reference.pkl"
 
 // ============================================================================
 // MINECRAFT SPECIFIC CONFIGURATION

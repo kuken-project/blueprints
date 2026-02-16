@@ -1,4 +1,4 @@
-amends "file://D:/IdeaProjects/kuken-blueprints/blueprints/games/minecraft/Minecraft.pkl"
+amends "https://kuken.io/blueprints/games/minecraft/Minecraft.pkl"
 
 name = "Minecraft: Java Edition"
 version = "1.0.0"
