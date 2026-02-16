@@ -1,67 +1,9 @@
-/// # Minecraft: Java Edition Blueprint
-///
-/// Küken blueprint for deploying Minecraft Java Edition servers using the [itzg/minecraft-server](https://github.com/itzg/docker-minecraft-server) Docker image.
-module io.kuken.minecraft.Minecraft
-
-amends "https://kuken.io/blueprints/reference/v1/Reference.pkl"
+amends "file://D:/IdeaProjects/kuken-blueprints/blueprints/games/minecraft/Minecraft.pkl"
 
 name = "Minecraft: Java Edition"
 version = "1.0.0"
-description = ""
-author = "Küken <support@kuken.gg>"
-url = "https://kuken.io"
+description = "Standard vanilla Minecraft: Java Edition server blueprint. Runs the official Minecraft server software without any modifications, plugins, or custom features."
 
-assets {
-  icon = "https://kuken.io/blueprints/icons/minecraft-java-edition.jpg"
-}
-
-// ============================================================================
-// INPUT DEFINITIONS
-// ============================================================================
-
-/// Docker image tag/version for the Minecraft server container.
-local JavaVersion = new SelectInput {
-  label = "Java Version"
-  items = new Mapping {
-    ["stable"]  = "Stable"
-    ["java25"]  = "Java 25"
-    ["java21"]  = "Java 21"
-    ["java17"]  = "Java 17"
-    ["java11"]  = "Java 11"
-    ["java8"]   = "Java 8"
-  }
-}
-/// Minecraft version to run on the server.
-/// Use `"LATEST"` for the newest release, specific versions like `"1.20.4"`, or `"SNAPSHOT"` for testing builds.
-local GameVersion = textInput("game-version", "Minecraft Version")
-
-inputs {
-  JavaVersion
-  GameVersion
-}
-
-// ============================================================================
-// BUILD CONFIGURATION
-// ============================================================================
-
-build {
-  docker {
-    image = "itzg/minecraft-server:\(JavaVersion)"
-  }
-
-  env = new Mapping {
-    ["EULA"]                    = true
-    ["CREATE_CONSOLE_IN_PIPE"]  = true
-    ["TYPE"]                    = "VANILLA"
-    ["VERSION"]                 = GameVersion
-  }
-}
-
-// ============================================================================
-// INSTANCE SETTINGS
-// ============================================================================
-
-instance {
-  startup = "java -jar \(module.refs.instance.jarFile)"
-  command = ssh("mc-send-to-console \(module.refs.instance.command)")
+minecraft {
+  software = "VANILLA"
 }

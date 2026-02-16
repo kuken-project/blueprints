@@ -1,0 +1,9 @@
+amends "file:///D:/IdeaProjects/kuken-blueprints/blueprints/games/minecraft/Minecraft.pkl"
+
+name = "Minecraft: Java Edition - Paper"
+version = "1.0.0"
+description = "High-performance Minecraft server using Paper - a Spigot fork that fixes gameplay and mechanics inconsistencies while offering improved performance and extensive plugin support."
+
+minecraft {
+  software = "PAPER"
+}
