@@ -14,7 +14,8 @@
 ///
 /// See <https://kuken.io/docs/blueprints>
 @ModuleInfo { minPklVersion = "0.30.2" }
-module io.kuken.Blueprint
+abstract module io.kuken.Blueprint
+
 hidden fixed const referenceVersion = 1
 
 /// The canonical name of the application or service.
@@ -241,6 +242,8 @@ typealias EnvVarValue = Char | String | Number | Boolean | Duration | DataSize |
 // ABSTRACT BASE CLASSES
 // ============================================================================
 abstract class Base {
+  hidden fixed const refs = module.refs
+
   const function use(_condition: UserInput, _value: String): Property = new ConditionProperty {
     name = _condition.name
     value = _value
@@ -324,6 +327,8 @@ class InstanceRefs {
   const name: Ref = internalPropertyRef(String, "instance.name")
 
   const jarFile: Ref = internalPropertyRef(String, "instance.jarFile")
+
+  const memory: DataSize = internalPropertyRef(String, "instance.memory").value().toInt().toDataSize("mb")
 
   const command: String = "${refs.instance.command}"
 }
