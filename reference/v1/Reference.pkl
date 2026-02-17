@@ -328,7 +328,7 @@ class InstanceRefs {
 
   const jarFile: Ref = internalPropertyRef(String, "instance.jarFile")
 
-  const memory: DataSize = internalPropertyRef(String, "instance.memory").value().toInt().toDataSize("mb")
+  const memory: DataSize = internalPropertyRef(Int, "instance.memory").value().toInt().toDataSize("mb")
 
   const command: String = "${refs.instance.command}"
 }

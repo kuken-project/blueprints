@@ -1,7 +1,7 @@
 /// # Minecraft: Java Edition Blueprint
 ///
 /// Küken blueprint for deploying Minecraft Java Edition servers using the [itzg/minecraft-server](https://github.com/itzg/docker-minecraft-server) Docker image.
-abstract module io.kuken.minecraft.Minecraft
+open module io.kuken.minecraft.Minecraft
 
 extends "https://kuken.io/blueprints/reference/v1/Reference.pkl"
 
@@ -12,7 +12,7 @@ extends "https://kuken.io/blueprints/reference/v1/Reference.pkl"
 /// Configuration for Minecraft server software.
 hidden minecraft: Minecraft
 
-local class Minecraft {
+class Minecraft {
 
   /// The server software implementation to use.
   ///
@@ -29,7 +29,7 @@ author = "Küken <support@kuken.gg>"
 url = "https://kuken.io"
 
 assets {
-  icon = "https://kuken.io/blueprints/icons/minecraft-java-edition.jpg"
+  icon = "https://kuken.io/blueprints/games/minecraft/icon.jpg"
 }
 
 // ============================================================================
